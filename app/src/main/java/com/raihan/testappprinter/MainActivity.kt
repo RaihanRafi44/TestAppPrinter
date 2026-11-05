@@ -207,12 +207,17 @@ fun PrinterTestAppScreen(
             .fillMaxSize()
             .padding(16.dp)
     ) {
-        val isTablet = maxWidth >= 600.dp
+        val isLandscapeTablet = maxWidth >= 600.dp && maxWidth > maxHeight
+        val isPortraitTablet = maxWidth >= 600.dp && maxHeight >= maxWidth
 
         Column(modifier = Modifier.fillMaxSize()) {
             // Header
             Text(
-                text = if (isTablet) "Xprinter XP-410B / XP-4601B Test Dashboard (Tablet Mode)" else "Xprinter XP-410B / XP-4601B Test",
+                text = when {
+                    isLandscapeTablet -> "Xprinter XP-410B / XP-4601B Test (Tablet Landscape)"
+                    isPortraitTablet -> "Xprinter XP-410B / XP-4601B Test (Tablet Portrait)"
+                    else -> "Xprinter XP-410B / XP-4601B Test"
+                },
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary
@@ -225,7 +230,7 @@ fun PrinterTestAppScreen(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            if (isTablet) {
+            if (isLandscapeTablet) {
                 // TABLET / WIDE LANDSCAPE LAYOUT (2 COLUMNS SIDE-BY-SIDE)
                 Row(
                     modifier = Modifier
@@ -305,7 +310,7 @@ fun PrinterTestAppScreen(
                     }
                 }
             } else {
-                // PHONE PORTRAIT LAYOUT (1 COLUMN STACKED)
+                // PORTRAIT LAYOUT (PHONE OR PORTRAIT TABLET - STACKED)
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
@@ -342,10 +347,12 @@ fun PrinterTestAppScreen(
 
                     Spacer(modifier = Modifier.height(6.dp))
 
+                    val deviceListHeight = if (isPortraitTablet) 280.dp else 180.dp
+
                     DeviceListContainer(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(180.dp),
+                            .height(deviceListHeight),
                         selectedTab = selectedTab,
                         bluetoothDevices = bluetoothDevices,
                         usbDevices = usbDevices,
@@ -369,7 +376,10 @@ fun PrinterTestAppScreen(
 
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    PhotoboothPreviewCard(sampleBitmap)
+                    PhotoboothPreviewCard(
+                        bitmap = sampleBitmap,
+                        imageWidthFraction = if (isPortraitTablet) 0.5f else 0.75f
+                    )
                 }
             }
         }
@@ -632,7 +642,10 @@ fun PrintActionSection(
 }
 
 @Composable
-fun PhotoboothPreviewCard(bitmap: Bitmap) {
+fun PhotoboothPreviewCard(
+    bitmap: Bitmap,
+    imageWidthFraction: Float = 0.75f
+) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = Color.White),
@@ -672,7 +685,7 @@ fun PhotoboothPreviewCard(bitmap: Bitmap) {
                 Image(
                     bitmap = bitmap.asImageBitmap(),
                     contentDescription = "Preview Strip Photobooth",
-                    modifier = Modifier.fillMaxWidth(0.75f)
+                    modifier = Modifier.fillMaxWidth(imageWidthFraction)
                 )
             }
         }
@@ -733,7 +746,20 @@ fun PrinterTestAppScreenPhonePreview() {
 
 @Preview(name = "Tablet Landscape", showBackground = true, widthDp = 1000, heightDp = 700)
 @Composable
-fun PrinterTestAppScreenTabletPreview() {
+fun PrinterTestAppScreenTabletLandscapePreview() {
+    TestAppPrinterTheme {
+        Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+            PrinterTestAppScreen(
+                printerManager = null,
+                modifier = Modifier.padding(innerPadding)
+            )
+        }
+    }
+}
+
+@Preview(name = "Tablet Portrait", showBackground = true, widthDp = 800, heightDp = 1200)
+@Composable
+fun PrinterTestAppScreenTabletPortraitPreview() {
     TestAppPrinterTheme {
         Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
             PrinterTestAppScreen(
