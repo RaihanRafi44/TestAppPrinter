@@ -45,6 +45,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -128,8 +129,12 @@ fun PrinterTestAppScreen(
 
     var isPrinting by remember { mutableStateOf(false) }
 
-    val sampleBitmap by remember {
-        mutableStateOf(ImageProcessor.createSamplePhotoboothStrip(800))
+    // Paper Settings
+    var paperType by remember { mutableIntStateOf(0) } // 0: Stiker Gap (Die-Cut), 1: Continuous Roll
+    var labelHeightMm by remember { mutableIntStateOf(150) } // 150mm (4x6"), 100mm, 75mm
+
+    val sampleBitmap = remember(labelHeightMm) {
+        ImageProcessor.createSamplePhotoboothStrip(width = 800, targetHeightMm = labelHeightMm)
     }
 
     // Bluetooth Permission Launcher
@@ -287,16 +292,35 @@ fun PrinterTestAppScreen(
                         )
                     }
 
-                    // Right Column: Photobooth Preview & Action Buttons
+                    // Right Column: Paper Config, Actions & Preview
                     Column(
                         modifier = Modifier
                             .weight(0.9f)
                             .fillMaxHeight()
                             .verticalScroll(rememberScrollState())
                     ) {
+                        PaperConfigCard(
+                            paperType = paperType,
+                            onPaperTypeChange = { paperType = it },
+                            labelHeightMm = labelHeightMm,
+                            onLabelHeightChange = { labelHeightMm = it },
+                            isConnected = connectionState is ConnectionState.Connected,
+                            onCalibrateClick = {
+                                scope.launch {
+                                    Toast.makeText(context, "Mengirim perintah kalibrasi sensor...", Toast.LENGTH_SHORT).show()
+                                    val calibTspl = TsplCommand().gapDetect().home().build()
+                                    printerManager?.sendData(calibTspl)
+                                }
+                            }
+                        )
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
                         PrintActionSection(
                             connectionState = connectionState,
                             isPrinting = isPrinting,
+                            paperType = paperType,
+                            labelHeightMm = labelHeightMm,
                             printerManager = printerManager,
                             photoboothBitmap = sampleBitmap,
                             context = context,
@@ -364,9 +388,28 @@ fun PrinterTestAppScreen(
 
                     Spacer(modifier = Modifier.height(12.dp))
 
+                    PaperConfigCard(
+                        paperType = paperType,
+                        onPaperTypeChange = { paperType = it },
+                        labelHeightMm = labelHeightMm,
+                        onLabelHeightChange = { labelHeightMm = it },
+                        isConnected = connectionState is ConnectionState.Connected,
+                        onCalibrateClick = {
+                            scope.launch {
+                                Toast.makeText(context, "Mengirim perintah kalibrasi sensor...", Toast.LENGTH_SHORT).show()
+                                val calibTspl = TsplCommand().gapDetect().home().build()
+                                printerManager?.sendData(calibTspl)
+                            }
+                        }
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
                     PrintActionSection(
                         connectionState = connectionState,
                         isPrinting = isPrinting,
+                        paperType = paperType,
+                        labelHeightMm = labelHeightMm,
                         printerManager = printerManager,
                         photoboothBitmap = sampleBitmap,
                         context = context,
@@ -381,6 +424,81 @@ fun PrinterTestAppScreen(
                         imageWidthFraction = if (isPortraitTablet) 0.5f else 0.75f
                     )
                 }
+            }
+        }
+    }
+}
+
+@Composable
+fun PaperConfigCard(
+    paperType: Int,
+    onPaperTypeChange: (Int) -> Unit,
+    labelHeightMm: Int,
+    onLabelHeightChange: (Int) -> Unit,
+    isConnected: Boolean,
+    onCalibrateClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFFAFAFA)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Text(
+                text = "Pengaturan Kertas & Alignment Sensor:",
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Bold
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Paper Type Selection
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(text = "Jenis Kertas:", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
+
+                FilterChip(
+                    selected = paperType == 0,
+                    onClick = { onPaperTypeChange(0) },
+                    label = { Text("Stiker Gap (Die-Cut)", fontSize = 11.sp) }
+                )
+                FilterChip(
+                    selected = paperType == 1,
+                    onClick = { onPaperTypeChange(1) },
+                    label = { Text("Continuous (Roll)", fontSize = 11.sp) }
+                )
+            }
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            // Label Height Selection
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(text = "Panjang Stiker:", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
+
+                listOf(150, 100, 75).forEach { h ->
+                    FilterChip(
+                        selected = labelHeightMm == h,
+                        onClick = { onLabelHeightChange(h) },
+                        label = { Text("${h}mm", fontSize = 11.sp) }
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            OutlinedButton(
+                onClick = onCalibrateClick,
+                enabled = isConnected,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Kalibrasi Sensor Kertas (Gap Detect)", fontSize = 11.sp)
             }
         }
     }
@@ -556,6 +674,8 @@ fun DeviceListContainer(
 fun PrintActionSection(
     connectionState: ConnectionState,
     isPrinting: Boolean,
+    paperType: Int,
+    labelHeightMm: Int,
     printerManager: PrinterManager?,
     photoboothBitmap: Bitmap,
     context: Context,
@@ -578,9 +698,9 @@ fun PrintActionSection(
                 onClick = {
                     scope.launch {
                         onPrintStateChange(true)
-                        val tsplData = TsplCommand()
+                        val tsplBuilder = TsplCommand()
                             .size(100, 80)
-                            .gap(2, 0)
+                            .gap(if (paperType == 0) 2 else 0, 0)
                             .direction(1)
                             .cls()
                             .text(40, 40, "3", 0, 1, 1, "=================================")
@@ -592,9 +712,12 @@ fun PrintActionSection(
                             .barcode(450, 270, "PHOTOBOOTH123", height = 90)
                             .text(40, 450, "3", 0, 1, 1, "Command TSPL Berhasil Diterima.")
                             .print(1, 1)
-                            .build()
 
-                        val success = printerManager?.sendData(tsplData) == true
+                        if (paperType == 0) {
+                            tsplBuilder.home()
+                        }
+
+                        val success = printerManager?.sendData(tsplBuilder.build()) == true
                         onPrintStateChange(false)
                         if (success) {
                             Toast.makeText(context, "Cetak Teks Test Berhasil Dikirim!", Toast.LENGTH_SHORT).show()
@@ -613,18 +736,19 @@ fun PrintActionSection(
                         onPrintStateChange(true)
                         Toast.makeText(context, "Membuat & Memproses Foto Photobooth Dithering...", Toast.LENGTH_SHORT).show()
 
-                        val heightMm = (photoboothBitmap.height / 8) + 10
-
-                        val tsplData = TsplCommand()
-                            .size(100, heightMm)
-                            .gap(2, 0)
+                        val tsplBuilder = TsplCommand()
+                            .size(100, labelHeightMm)
+                            .gap(if (paperType == 0) 2 else 0, 0)
                             .direction(1)
                             .cls()
                             .bitmap(0, 0, photoboothBitmap)
                             .print(1, 1)
-                            .build()
 
-                        val success = printerManager?.sendData(tsplData) == true
+                        if (paperType == 0) {
+                            tsplBuilder.home()
+                        }
+
+                        val success = printerManager?.sendData(tsplBuilder.build()) == true
                         onPrintStateChange(false)
                         if (success) {
                             Toast.makeText(context, "Cetak Photobooth Strip Berhasil Dikirim!", Toast.LENGTH_SHORT).show()

@@ -64,40 +64,37 @@ object ImageProcessor {
 
     /**
      * Generates a sample Photobooth strip image (width: 800 dots ~ 100mm @ 203dpi)
+     * Scaled precisely to fit targetHeightMm * 8 dots.
      */
-    fun createSamplePhotoboothStrip(width: Int = 800): Bitmap {
-        val frameHeight = (width * 0.65).toInt()
-        val headerHeight = 120
-        val footerHeight = 150
-        val photoCount = 3
-        val spacing = 25
+    fun createSamplePhotoboothStrip(width: Int = 800, targetHeightMm: Int = 150): Bitmap {
+        val targetHeightDots = targetHeightMm * 8
+        val baseWidth = 800
+        val baseHeight = 1600
 
-        val totalHeight = headerHeight + (photoCount * frameHeight) + ((photoCount + 1) * spacing) + footerHeight
-
-        val bitmap = Bitmap.createBitmap(width, totalHeight, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(bitmap)
+        val unscaledBitmap = Bitmap.createBitmap(baseWidth, baseHeight, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(unscaledBitmap)
         canvas.drawColor(Color.WHITE)
 
-        val paint = Paint().apply {
-            isAntiAlias = true
-        }
+        val paint = Paint().apply { isAntiAlias = true }
 
         // Header
         paint.color = Color.BLACK
         paint.textSize = 44f
         paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
         paint.textAlign = Paint.Align.CENTER
-        canvas.drawText("PHOTOBOOTH TEST", width / 2f, 65f, paint)
+        canvas.drawText("PHOTOBOOTH TEST", baseWidth / 2f, 75f, paint)
 
         paint.textSize = 22f
         paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
-        canvas.drawText("Xprinter XP-410B / XP-4601B (203 DPI)", width / 2f, 100f, paint)
+        canvas.drawText("Xprinter XP-410B / XP-4601B (203 DPI)", baseWidth / 2f, 115f, paint)
 
         // Draw 3 Photo Frames
-        var currentY = headerHeight + spacing
-        val frameLeft = 50
-        val frameRight = width - 50
-        val frameWidth = frameRight - frameLeft
+        val photoCount = 3
+        val frameWidth = 680
+        val frameHeight = 360
+        val frameLeft = (baseWidth - frameWidth) / 2
+        val spacing = 30
+        var currentY = 150
 
         val strokePaint = Paint().apply {
             color = Color.BLACK
@@ -106,11 +103,10 @@ object ImageProcessor {
         }
 
         for (i in 1..photoCount) {
-            // Frame Border
             canvas.drawRect(
                 frameLeft.toFloat(),
                 currentY.toFloat(),
-                frameRight.toFloat(),
+                (frameLeft + frameWidth).toFloat(),
                 (currentY + frameHeight).toFloat(),
                 strokePaint
             )
@@ -120,21 +116,19 @@ object ImageProcessor {
                 style = Paint.Style.FILL
             }
 
-            val centerX = (frameLeft + frameRight) / 2f
+            val centerX = frameLeft + frameWidth / 2f
             val centerY = currentY + frameHeight / 2f
-            val maxRadius = frameWidth / 2.3f
+            val maxRadius = frameHeight / 2.3f
 
             for (r in 10 downTo 1) {
                 fillPaint.color = if (r % 2 == 0) Color.DKGRAY else Color.LTGRAY
                 canvas.drawCircle(centerX, centerY, maxRadius * (r / 10f), fillPaint)
             }
 
-            // Subject
             fillPaint.color = Color.BLACK
-            canvas.drawCircle(centerX, centerY - 25f, 55f, fillPaint)
-            canvas.drawCircle(centerX, centerY + 100f, 100f, fillPaint)
+            canvas.drawCircle(centerX, centerY - 20f, 50f, fillPaint)
+            canvas.drawCircle(centerX, centerY + 90f, 95f, fillPaint)
 
-            // Frame Number Text
             paint.textSize = 28f
             paint.textAlign = Paint.Align.LEFT
             paint.color = Color.WHITE
@@ -151,12 +145,18 @@ object ImageProcessor {
         paint.textAlign = Paint.Align.CENTER
         paint.textSize = 26f
         paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-        canvas.drawText("THANK YOU FOR USING PHOTOBOOTH!", width / 2f, currentY + 45f, paint)
+        canvas.drawText("THANK YOU FOR USING PHOTOBOOTH!", baseWidth / 2f, currentY + 50f, paint)
 
         paint.textSize = 20f
         paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
-        canvas.drawText("Date: $dateStr", width / 2f, currentY + 80f, paint)
+        canvas.drawText("Date: $dateStr", baseWidth / 2f, currentY + 85f, paint)
 
-        return applyFloydSteinbergDithering(bitmap)
+        val scaledBitmap = if (baseHeight != targetHeightDots || baseWidth != width) {
+            Bitmap.createScaledBitmap(unscaledBitmap, width, targetHeightDots, true)
+        } else {
+            unscaledBitmap
+        }
+
+        return applyFloydSteinbergDithering(scaledBitmap)
     }
 }

@@ -43,6 +43,34 @@ class TsplCommand {
     }
 
     /**
+     * Move paper feed to the top of next label (HOME)
+     */
+    fun home(): TsplCommand {
+        return addCommand("HOME")
+    }
+
+    /**
+     * Perform paper gap sensor auto calibration
+     */
+    fun gapDetect(): TsplCommand {
+        return addCommand("GAPDETECT")
+    }
+
+    /**
+     * Auto detect paper size and gap
+     */
+    fun autodetect(pageWidthMm: Int = 100, gapDistanceMm: Int = 2): TsplCommand {
+        return addCommand("AUTODETECT $pageWidthMm,$gapDistanceMm")
+    }
+
+    /**
+     * Form feed paper
+     */
+    fun formFeed(): TsplCommand {
+        return addCommand("FORMFEED")
+    }
+
+    /**
      * Add text
      */
     fun text(
